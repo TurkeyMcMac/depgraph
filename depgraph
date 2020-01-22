@@ -1,0 +1,143 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use constant INCFLAG_INCLUDE_FILE   => 1;
+use constant INCFLAG_RETURN_TO_FILE => 2;
+use constant INCFLAG_SYSTEM_HEADER  => 4;
+use constant INCFLAG_EXTERN_C       => 8;
+
+sub header_label {
+    my ($path) = @_;
+    local ( $0, $1 );
+    if ( $path =~ /include\/+(.+)$/ ) {
+        return "<$1>";
+    }
+    elsif ( $path =~ /\/([^\/]+)$/ ) {
+        return "\\\"$1\\\"";
+    }
+    return "\\\"$path\\\"";
+}
+
+sub parse_file_spec {
+    my ($line) = @_;
+    local ( $0, $1, $2, $3, $4, $5, $6 );
+
+    # TODO: unordered flags? Flexible whitespace?
+    if ( $line =~ /^# ([0-9]+) "([^"]+)"( 1)?( 2)?( 3)?( 4)?$/ ) {
+        my $linenum  = +$1;
+        my $filename = $2;
+        my $flags    = 0;
+        if ($3) {
+            $flags |= INCFLAG_INCLUDE_FILE;
+        }
+        if ($4) {
+            $flags |= INCFLAG_RETURN_TO_FILE;
+        }
+        if ($5) {
+            $flags |= INCFLAG_SYSTEM_HEADER;
+        }
+        if ($6) {
+            $flags |= INCFLAG_EXTERN_C;
+        }
+        return ( $linenum, $filename, $flags );    # TODO: unescape $filename
+    }
+}
+
+sub parse_next_pp_line {
+    my $i    = shift;
+    my @pped = @_;
+    while ( $$i <= $#pped ) {
+        my @line = parse_file_spec( $pped[$$i] );
+        ++$$i;
+        if ( $line[0] ) {
+            return @line;
+        }
+    }
+}
+
+sub skip_to_end {
+    my $depth = 0;
+    while ( $depth >= 0 ) {
+        my ( $linenum, $filename, $flags ) = parse_next_pp_line(@_);
+        return if ( !$linenum );
+        if ( $flags & INCFLAG_INCLUDE_FILE ) {
+            ++$depth;
+        }
+        elsif ( $flags & INCFLAG_RETURN_TO_FILE ) {
+            --$depth;
+        }
+    }
+}
+
+sub scan_dependencies {
+    my $deps = shift;
+    my @pped = @_;
+    my $i    = 0;
+    my ( $num1, $this_file ) = parse_next_pp_line( \$i, @pped );
+    return if $num1 != 1;
+    my $these_deps = {};
+    $deps->{$this_file} = $these_deps;
+    for ( ; ; ) {
+        my ( $linenum, $filename, $flags ) = parse_next_pp_line( \$i, @pped );
+        return if !$linenum;
+        if ( $flags & INCFLAG_INCLUDE_FILE ) {
+            if (   ( $flags & INCFLAG_SYSTEM_HEADER )
+                || ( substr $filename, 0, 1 ) eq '/' )
+            {
+                $these_deps->{$filename} = 1;
+                $deps->{$filename}       = {};
+                skip_to_end( \$i, @pped );
+            }
+            else {
+                $this_file               = $filename;
+                $these_deps->{$filename} = 1;
+                $these_deps              = $deps->{$filename};
+                if ( !$these_deps ) {
+                    $these_deps = {};
+                    $deps->{$this_file} = $these_deps;
+                }
+            }
+        }
+        elsif ( $flags & INCFLAG_RETURN_TO_FILE ) {
+            $this_file  = $filename;
+            $these_deps = $deps->{$this_file};
+        }
+    }
+}
+
+sub trim_dependencies {
+    my ($deps) = @_;
+    delete $deps->{'<built-in>'};
+    delete $deps->{'<command line>'};
+}
+
+sub print_dependencies {
+    my (%deps) = @_;
+    my %node_names = ();
+    print "digraph deps {\n";
+    my $i = 0;
+    foreach my $filename ( keys %deps ) {
+        my $label = header_label($filename);
+        $node_names{$filename} = "n$i";
+        print "    n$i [label=\"$label\"];\n";    # TODO: escape label
+        ++$i;
+    }
+    while ( my ( $filename, $deps ) = each %deps ) {
+        my $this_node = $node_names{$filename};
+        foreach my $dep_name ( keys %$deps ) {
+            my $dep_node = $node_names{$dep_name};
+            print "    $this_node -> $dep_node;\n" if ($dep_node);
+        }
+    }
+    print "}\n";
+}
+
+my ( $a, $b, $flags ) = parse_file_spec('# 1 "file.h" 1 4');
+my $file = shift;
+my @pped = split "\n", qx(cc -E $file | fgrep '#');
+my %deps;
+scan_dependencies( \%deps, @pped );
+trim_dependencies( \%deps );
+print_dependencies(%deps);
