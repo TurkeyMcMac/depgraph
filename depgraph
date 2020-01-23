@@ -86,8 +86,6 @@ sub scan_dependencies {
             if (   ( $flags & INCFLAG_SYSTEM_HEADER )
                 || ( substr $filename, 0, 1 ) eq '/' )
             {
-                $these_deps->{$filename} = 1;
-                $deps->{$filename}       = {};
                 skip_to_end( \$i, @pped );
             }
             else {
