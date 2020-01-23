@@ -128,7 +128,6 @@ sub print_dependencies {
     print "}\n";
 }
 
-my ( $a, $b, $flags ) = parse_file_spec('# 1 "file.h" 1 4');
 my %deps = ();
 for my $file (@ARGV) {
     open( my $pp_out, '-|', "cc -E $file | fgrep '#'" )
