@@ -133,9 +133,10 @@ sub print_dependencies {
 }
 
 my ( $a, $b, $flags ) = parse_file_spec('# 1 "file.h" 1 4');
-my $file = shift;
-my @pped = split "\n", qx(cc -E $file | fgrep '#');
-my %deps;
-scan_dependencies( \%deps, @pped );
+my %deps = ();
+for my $file (@ARGV) {
+    my @pped = split "\n", qx(cc -E $file | fgrep '#');
+    scan_dependencies( \%deps, @pped );
+}
 trim_dependencies( \%deps );
 print_dependencies(%deps);
