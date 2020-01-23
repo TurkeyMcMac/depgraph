@@ -11,12 +11,19 @@ use constant INCFLAG_EXTERN_C       => 8;
 sub main {
     my %deps = ();
     for my $file (@ARGV) {
-        open( my $pp_out, '-|', "cc -E $file | fgrep '#'" )
+        ( my $pp_out = start_preprocessor($file) )
           or die "Unable to start preprocessor; $!";
         scan_dependencies( \%deps, $pp_out );
     }
     trim_dependencies( \%deps );
     print_dependencies(%deps);
+}
+
+sub start_preprocessor {
+    my ($file) = @_;
+    if ( open( my $pp_out, '-|', "cc -E $file | fgrep '#'" ) ) {
+        return $pp_out;
+    }
 }
 
 sub header_label {
