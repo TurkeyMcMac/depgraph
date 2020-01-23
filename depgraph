@@ -8,6 +8,17 @@ use constant INCFLAG_RETURN_TO_FILE => 2;
 use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
+sub main {
+    my %deps = ();
+    for my $file (@ARGV) {
+        open( my $pp_out, '-|', "cc -E $file | fgrep '#'" )
+          or die "Unable to start preprocessor; $!";
+        scan_dependencies( \%deps, $pp_out );
+    }
+    trim_dependencies( \%deps );
+    print_dependencies(%deps);
+}
+
 sub header_label {
     my ($path) = @_;
     local ( $0, $1 );
@@ -128,11 +139,4 @@ sub print_dependencies {
     print "}\n";
 }
 
-my %deps = ();
-for my $file (@ARGV) {
-    open( my $pp_out, '-|', "cc -E $file | fgrep '#'" )
-      or die "Unable to start preprocessor; $!";
-    scan_dependencies( \%deps, $pp_out );
-}
-trim_dependencies( \%deps );
-print_dependencies(%deps);
+main()
