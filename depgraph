@@ -46,11 +46,9 @@ sub parse_file_spec {
 }
 
 sub parse_next_pp_line {
-    my $i    = shift;
-    my @pped = @_;
-    while ( $$i <= $#pped ) {
-        my @line = parse_file_spec( $pped[$$i] );
-        ++$$i;
+    my ($pp_out) = @_;
+    while ( my $pp_out_line = <$pp_out> ) {
+        my @line = parse_file_spec($pp_out_line);
         if ( $line[0] ) {
             return @line;
         }
@@ -72,21 +70,19 @@ sub skip_to_end {
 }
 
 sub scan_dependencies {
-    my $deps = shift;
-    my @pped = @_;
-    my $i    = 0;
-    my ( $num1, $this_file ) = parse_next_pp_line( \$i, @pped );
+    my ( $deps, $pp_out )    = @_;
+    my ( $num1, $this_file ) = parse_next_pp_line($pp_out);
     return if $num1 != 1;
     my $these_deps = {};
     $deps->{$this_file} = $these_deps;
     for ( ; ; ) {
-        my ( $linenum, $filename, $flags ) = parse_next_pp_line( \$i, @pped );
+        my ( $linenum, $filename, $flags ) = parse_next_pp_line($pp_out);
         return if !$linenum;
         if ( $flags & INCFLAG_INCLUDE_FILE ) {
             if (   ( $flags & INCFLAG_SYSTEM_HEADER )
                 || ( substr $filename, 0, 1 ) eq '/' )
             {
-                skip_to_end( \$i, @pped );
+                skip_to_end($pp_out);
             }
             else {
                 $this_file               = $filename;
@@ -135,8 +131,9 @@ sub print_dependencies {
 my ( $a, $b, $flags ) = parse_file_spec('# 1 "file.h" 1 4');
 my %deps = ();
 for my $file (@ARGV) {
-    my @pped = split "\n", qx(cc -E $file | fgrep '#');
-    scan_dependencies( \%deps, @pped );
+    open( my $pp_out, '-|', "cc -E $file | fgrep '#'" )
+      or die "Unable to start preprocessor; $!";
+    scan_dependencies( \%deps, $pp_out );
 }
 trim_dependencies( \%deps );
 print_dependencies(%deps);
