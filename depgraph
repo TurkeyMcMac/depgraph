@@ -9,14 +9,19 @@ use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
 sub main {
-    my %deps = ();
+    my %deps                = ();
+    my $opt_track_system    = 1;
+    my $opt_local_dir       = './';
+    my $opt_remove_built_in = 1;
+    my $opt_pretty_names    = 0;
+    my $opt_out_format      = 'json';
     for my $file (@ARGV) {
         ( my $pp_out = start_preprocessor($file) )
           or die "Unable to start preprocessor; $!";
-        scan_dependencies( \%deps, $pp_out );
+        scan_dependencies( \%deps, $pp_out, $opt_track_system, $opt_local_dir );
     }
-    trim_dependencies( \%deps );
-    print_dependencies(%deps);
+    trim_dependencies( \%deps, $opt_remove_built_in );
+    print_dependencies( \%deps, $opt_pretty_names, $opt_out_format );
 }
 
 sub start_preprocessor {
@@ -87,8 +92,14 @@ sub skip_to_end {
     }
 }
 
+sub is_foreign_path {
+    my ( $path, $local_dir ) = @_;
+    return ( substr $path, 0, 1 ) eq '/'
+      && ( substr $path, 0, length $local_dir ) ne $local_dir;
+}
+
 sub scan_dependencies {
-    my ( $deps, $pp_out )    = @_;
+    my ( $deps, $pp_out, $track_system, $local_dir ) = @_;
     my ( $num1, $this_file ) = parse_next_pp_line($pp_out);
     return if $num1 != 1;
     my $these_deps = {};
@@ -97,8 +108,11 @@ sub scan_dependencies {
         my ( $linenum, $filename, $flags ) = parse_next_pp_line($pp_out);
         return if !$linenum;
         if ( $flags & INCFLAG_INCLUDE_FILE ) {
-            if (   ( $flags & INCFLAG_SYSTEM_HEADER )
-                || ( substr $filename, 0, 1 ) eq '/' )
+            if (
+                !$track_system
+                && ( ( $flags & INCFLAG_SYSTEM_HEADER )
+                    || is_foreign_path( $filename, $local_dir ) )
+              )
             {
                 skip_to_end($pp_out);
             }
@@ -120,30 +134,53 @@ sub scan_dependencies {
 }
 
 sub trim_dependencies {
-    my ($deps) = @_;
-    delete $deps->{'<built-in>'};
-    delete $deps->{'<command line>'};
+    my ( $deps, $remove_builtin ) = @_;
+    if ($remove_builtin) {
+        delete $deps->{'<built-in>'};
+        delete $deps->{'<command line>'};
+    }
 }
 
 sub print_dependencies {
-    my (%deps) = @_;
-    my %node_names = ();
-    print "digraph deps {\n";
-    my $i = 0;
-    foreach my $filename ( keys %deps ) {
-        my $label = header_label($filename);
-        $node_names{$filename} = "n$i";
-        print "    n$i [label=\"$label\"];\n";    # TODO: escape label
-        ++$i;
-    }
-    while ( my ( $filename, $deps ) = each %deps ) {
-        my $this_node = $node_names{$filename};
-        foreach my $dep_name ( keys %$deps ) {
-            my $dep_node = $node_names{$dep_name};
-            print "    $this_node -> $dep_node;\n" if ($dep_node);
+    my ( $deps, $pretty_names, $fmt ) = @_;
+
+    # TODO: escape names
+    if ( $fmt eq 'json' ) {
+        print '{';
+        my $before = '';
+        while ( my ( $filename, $these_deps ) = each %$deps ) {
+            print "$before\"$filename\":[";
+            $before = ',';
+            my $before = '';
+            foreach my $depname ( keys %$these_deps ) {
+                if ( $deps->{$depname} ) {
+                    print "$before\"$depname\"";
+                    $before = ',';
+                }
+            }
+            print ']';
         }
+        print '}';
     }
-    print "}\n";
+    elsif ( $fmt eq 'dot' ) {
+        my %node_names = ();
+        print "digraph deps {\n";
+        my $i = 0;
+        foreach my $filename ( keys %$deps ) {
+            my $label = $pretty_names ? header_label($filename) : $filename;
+            $node_names{$filename} = "n$i";
+            print "    n$i [label=\"$label\"];\n";    # TODO: escape label
+            ++$i;
+        }
+        while ( my ( $filename, $deps ) = each %$deps ) {
+            my $this_node = $node_names{$filename};
+            foreach my $dep_name ( keys %$deps ) {
+                my $dep_node = $node_names{$dep_name};
+                print "    $this_node -> $dep_node;\n" if ($dep_node);
+            }
+        }
+        print "}\n";
+    }
 }
 
 main()
