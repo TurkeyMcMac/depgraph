@@ -16,8 +16,7 @@ sub main {
     my $opt_remove_built_in = 1;
     my $opt_pretty_names    = 0;
     my $opt_out_format      = 'json';
-    my $opt_pp_exe          = 'cc';
-    my @opt_pp_args         = ('-E');
+    my @opt_pp_argv         = ( 'cc', '-E' );
     while ( $#ARGV >= 0 ) {
         local ( $0, $1 );
         my $arg = shift @ARGV;
@@ -53,17 +52,10 @@ sub main {
         elsif ( $arg =~ /^--out-format=(.*)$/ ) {
             $opt_out_format = $1;
         }
-        elsif ( $arg eq '--pp-exe' ) {
-            fatal('Option --pp-exe requires an argument') if ( $#ARGV < 0 );
-            $opt_pp_exe = shift @ARGV;
-        }
-        elsif ( $arg =~ /^--pp-exe=(.*)$/ ) {
-            $opt_pp_exe = $1;
-        }
-        elsif ( $arg eq '--pp-args' ) {
-            @opt_pp_args = ();
+        elsif ( $arg eq '--pp-argv' ) {
+            @opt_pp_argv = ();
             while ( $#ARGV >= 0 && ( $arg = shift @ARGV ) ne '--' ) {
-                push @opt_pp_args, $arg;
+                push @opt_pp_argv, $arg;
             }
             last;
         }
@@ -82,8 +74,7 @@ sub main {
 
     my %deps = ();
     for my $file (@ARGV) {
-        ( my $pp_out =
-              start_preprocessor( [ $opt_pp_exe, @opt_pp_args ], $file ) )
+        ( my $pp_out = start_preprocessor( \@opt_pp_argv, $file ) )
           or fatal("Unable to start preprocessor; $!");
         scan_dependencies( \%deps, $pp_out, $opt_track_system, $opt_local_dir );
     }
@@ -97,9 +88,9 @@ sub fatal {
 }
 
 sub start_preprocessor {
-    my ( $args, $file ) = @_;
-    my $args_joined = join ' ', @$args;
-    if ( open( my $pp_out, '-|', "$args_joined $file | fgrep '#'" ) ) {
+    my ( $argv, $file ) = @_;
+    my $argv_joined = join ' ', @$argv;
+    if ( open( my $pp_out, '-|', "$argv_joined $file | fgrep '#'" ) ) {
         return $pp_out;
     }
 }
