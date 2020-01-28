@@ -89,10 +89,16 @@ sub fatal {
 
 sub start_preprocessor {
     my ( $argv, $file ) = @_;
-    my $argv_joined = join ' ', @$argv;
+    my $argv_joined = join ' ', ( map { shell_escape($_) } @$argv );
     if ( open( my $pp_out, '-|', "$argv_joined $file | fgrep '#'" ) ) {
         return $pp_out;
     }
+}
+
+sub shell_escape {
+    local ($_) = @_;
+    s/'/'\\''/g;
+    return "'$_'";
 }
 
 sub header_label {
