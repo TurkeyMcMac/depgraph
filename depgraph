@@ -8,20 +8,75 @@ use constant INCFLAG_RETURN_TO_FILE => 2;
 use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
+my $program_name = $0;
+
 sub main {
-    my %deps                = ();
-    my $opt_track_system    = 1;
-    my $opt_local_dir       = './';
+    my $opt_track_system    = 0;
+    my $opt_local_dir       = '.';
     my $opt_remove_built_in = 1;
     my $opt_pretty_names    = 0;
     my $opt_out_format      = 'json';
+    while ( $#ARGV >= 0 ) {
+        local ( $0, $1 );
+        my $arg = shift @ARGV;
+        if ( $arg eq '--track-system' ) {
+            $opt_track_system = 1;
+        }
+        elsif ( $arg eq '--no-track-system' ) {
+            $opt_track_system = 0;
+        }
+        elsif ( $arg eq '--local-dir' ) {
+            fatal('Option --local-dir requires an argument') if ( $#ARGV < 0 );
+            $opt_local_dir = shift @ARGV;
+        }
+        elsif ( $arg =~ /^--local-dir=(.*)$/ ) {
+            $opt_local_dir = $1;
+        }
+        elsif ( $arg eq '--remove-built-in' ) {
+            $opt_remove_built_in = 1;
+        }
+        elsif ( $arg eq '--no-remove-built-in' ) {
+            $opt_remove_built_in = 0;
+        }
+        elsif ( $arg eq '--pretty-names' ) {
+            $opt_pretty_names = 1;
+        }
+        elsif ( $arg eq '--no-pretty-names' ) {
+            $opt_pretty_names = 0;
+        }
+        elsif ( $arg eq '--out-format' ) {
+            fatal('Option --out-format requires an argument') if ( $#ARGV < 0 );
+            $opt_out_format = shift @ARGV;
+        }
+        elsif ( $arg =~ /^--out-format=(.*)$/ ) {
+            $opt_out_format = $1;
+        }
+        elsif ( $arg eq '--' ) {
+            last;
+        }
+        elsif ( $arg =~ /^-/ ) {
+            fatal("Unknown option: $arg");
+        }
+        else {
+            unshift @ARGV, $arg;
+            last;
+        }
+    }
+    $opt_local_dir .= '/';
+
+    my %deps = ();
     for my $file (@ARGV) {
         ( my $pp_out = start_preprocessor($file) )
-          or die "Unable to start preprocessor; $!";
+          or fatal("Unable to start preprocessor; $!");
         scan_dependencies( \%deps, $pp_out, $opt_track_system, $opt_local_dir );
     }
     trim_dependencies( \%deps, $opt_remove_built_in );
     print_dependencies( \%deps, $opt_pretty_names, $opt_out_format );
+}
+
+sub fatal {
+    say STDERR "$program_name: @_";
+    exit 1;
 }
 
 sub start_preprocessor {
