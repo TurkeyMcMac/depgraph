@@ -117,8 +117,6 @@ sub header_label {
 sub parse_file_spec {
     my ($line) = @_;
     local ( $0, $1, $2, $3, $4, $5, $6 );
-
-    # TODO: unordered flags? Flexible whitespace?
     if ( $line =~ /^# ([0-9]+) "(.+)"( 1)?( 2)?( 3)?( 4)?$/ ) {
         my $linenum  = +$1;
         my $filename = $2;
