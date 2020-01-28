@@ -62,7 +62,7 @@ sub main {
         elsif ( $arg eq '--' ) {
             last;
         }
-        elsif ( $arg =~ /^-/ ) {
+        elsif ( $arg =~ /^-./ ) {
             fatal("Unknown option: $arg");
         }
         else {
