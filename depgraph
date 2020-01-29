@@ -103,6 +103,19 @@ sub shell_escape {
     return "'$_'";
 }
 
+sub json_escape {
+    local ($_) = @_;
+    local ($0);
+    s/(["\\])/\\$1/g;
+    s/\x08/\\b/g;
+    s/\f/\\f/g;
+    s/\n/\\n/g;
+    s/\r/\\r/g;
+    s/\t/\\t/g;
+    s/([\x00-\x1F\x80-\xFF])/sprintf "\\u%04x", ord(+$1)/eg;
+    return "\"$_\"";
+}
+
 sub dot_escape {
     local ($_) = @_;
     local ($0);
@@ -248,18 +261,16 @@ sub trim_dependencies {
 
 sub print_dependencies {
     my ( $deps, $pretty_names, $fmt ) = @_;
-
-    # TODO: escape names
     if ( $fmt eq 'json' ) {
         print '{';
         my $before = '';
         while ( my ( $filename, $these_deps ) = each %$deps ) {
-            print "$before\"$filename\":[";
+            print $before, json_escape($filename), ':[';
             $before = ',';
             my $before = '';
             foreach my $depname ( keys %$these_deps ) {
                 if ( $deps->{$depname} ) {
-                    print "$before\"$depname\"";
+                    print $before, json_escape($depname);
                     $before = ',';
                 }
             }
