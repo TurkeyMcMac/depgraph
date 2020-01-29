@@ -169,7 +169,7 @@ sub parse_file_spec {
         if ($6) {
             $flags |= INCFLAG_EXTERN_C;
         }
-        return ( $linenum, $filename, $flags );    # TODO: unescape $filename
+        return ( $linenum, $filename, $flags );
     }
 }
 
