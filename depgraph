@@ -131,7 +131,7 @@ sub c_unescape {
     return "$_" if ( !/\\/ );
     local ( $0, $1, $2, $3, $4 );
     s/\\a/\a/g;
-    s/\\b/\b/g;
+    s/\\b/\x08/g;
     s/\\e/\e/g;
     s/\\f/\f/g;
     s/\\n/\n/g;
