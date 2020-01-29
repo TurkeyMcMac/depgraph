@@ -98,8 +98,35 @@ sub start_preprocessor {
 
 sub shell_escape {
     local ($_) = @_;
+    local ($0);
     s/'/'\\''/g;
     return "'$_'";
+}
+
+sub c_unescape {
+    local ($_) = @_;
+    return "$_" if ( !/\\/ );
+    local ( $0, $1, $2, $3, $4 );
+    s/^"(.*)"$/$1/;
+    s/\\a/\a/g;
+    s/\\b/\b/g;
+    s/\\e/\e/g;
+    s/\\f/\f/g;
+    s/\\n/\n/g;
+    s/\\r/\r/g;
+    s/\\t/\t/g;
+    s/\\v/\x0B/g;
+    s/\\'/'/g;
+    s/\\"/"/g;
+    s/\\\?/?/g;
+s/\\([0-3]?[0-7]{1,2})|\\x([0-9a-fA-F]{1,2})|\\u([0-9a-fA-F]{4})|\\U([0-9a-fA-F]{8})|\\\\/
+        defined($1) ? chr(oct($1)) :
+        defined($2) ? chr(hex($2)) :
+        defined($3) ? chr(hex($3)) :
+	defined($4) ? chr(hex($4)) :
+                      '\\'
+    /eg;
+    return "$_";
 }
 
 sub header_label {
@@ -119,7 +146,7 @@ sub parse_file_spec {
     local ( $0, $1, $2, $3, $4, $5, $6 );
     if ( $line =~ /^# ([0-9]+) "(.+)"( 1)?( 2)?( 3)?( 4)?$/ ) {
         my $linenum  = +$1;
-        my $filename = $2;
+        my $filename = c_unescape($2);
         my $flags    = 0;
         if ($3) {
             $flags |= INCFLAG_INCLUDE_FILE;
