@@ -107,7 +107,6 @@ sub c_unescape {
     local ($_) = @_;
     return "$_" if ( !/\\/ );
     local ( $0, $1, $2, $3, $4 );
-    s/^"(.*)"$/$1/;
     s/\\a/\a/g;
     s/\\b/\b/g;
     s/\\e/\e/g;
