@@ -112,6 +112,7 @@ use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
 my $program_name = $0;
+my $version = '0.0.1'; # Change this with care; it must be detected by sed.
 my $help_text;    # Initialized later.
 
 sub main {
@@ -172,7 +173,7 @@ sub main {
             exit 0;
         }
         elsif ( $arg eq '--version' || $arg eq '-v' ) {
-            print "$program_name version 0.0.1\n";
+            print "$program_name version $version\n";
             exit 0;
         }
         elsif ( $arg eq '--' ) {
