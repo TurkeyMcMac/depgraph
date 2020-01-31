@@ -61,6 +61,11 @@ graph.
 
 This is a shortcut for '--pretty-names --out-format dot'.
 
+=item B<--parallel> I<processes>
+
+Use a number of parser processes equal to the positive number I<processes>. The
+default is 8. This does not include the preprocessor processes.
+
 =item B<--pp-argv>
 
 This begins the argument vector with which to invoke the preprocessor. The
@@ -112,7 +117,7 @@ use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
 my $program_name = $0;
-my $version      = '0.0.2'; # Change this with care; it must be detected by sed.
+my $version      = '0.1.0'; # Change this with care; it must be detected by sed.
 my $help_text;              # Initialized later.
 
 sub main {
@@ -121,6 +126,7 @@ sub main {
     my $opt_remove_built_in = 1;
     my $opt_pretty_names    = 0;
     my $opt_out_format      = 'json';
+    my $opt_parallel        = 8;
     my @opt_pp_argv         = ( 'cc', '-E' );
     while ( $#ARGV >= 0 ) {
         local ( $0, $1 );
@@ -161,6 +167,12 @@ sub main {
             $opt_pretty_names = 1;
             $opt_out_format   = 'dot';
         }
+        elsif ( $arg eq '--parallel' ) {
+            $opt_parallel = shift @ARGV;
+        }
+        elsif ( $arg =~ /^--parallel=(.*)$/ ) {
+            $opt_parallel = $1;
+        }
         elsif ( $arg eq '--pp-argv' ) {
             @opt_pp_argv = ();
             while ( $#ARGV >= 0 && ( $arg = shift @ARGV ) ne '--' ) {
@@ -188,9 +200,11 @@ sub main {
         }
     }
     $opt_local_dir .= '/';
+    fatal("Invalid process count: $opt_parallel")
+      unless ( $opt_parallel =~ /^[0-9]+$/ && +$opt_parallel > 0 );
 
     my %deps           = ();
-    my $num_procs      = 8;
+    my $num_procs      = +$opt_parallel;
     my $files_per_proc = int( scalar @ARGV / $num_procs );
     my $extra_files    = scalar @ARGV - $num_procs * $files_per_proc;
     my @readers        = ();
@@ -256,6 +270,9 @@ Options:
     directed graph.
   --pretty-dot
     This is a shortcut for '--pretty-names --out-format dot'.
+  --parallel <processes>
+    Use a number of parser processes equal to the positive number <processes>.
+    The default is 8. This does not include the preprocessor processes.
   --pp-argv
     After this comes the argument vector of the preprocessor ('cc -E' by
     default) terminated by a '--'. After this come the input files, not more
