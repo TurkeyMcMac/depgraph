@@ -112,8 +112,8 @@ use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
 my $program_name = $0;
-my $version = '0.0.1'; # Change this with care; it must be detected by sed.
-my $help_text;    # Initialized later.
+my $version      = '0.0.1'; # Change this with care; it must be detected by sed.
+my $help_text;              # Initialized later.
 
 sub main {
     my $opt_track_system    = 0;
