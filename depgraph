@@ -112,7 +112,7 @@ use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
 my $program_name = $0;
-my $version      = '0.0.1'; # Change this with care; it must be detected by sed.
+my $version      = '0.0.2'; # Change this with care; it must be detected by sed.
 my $help_text;              # Initialized later.
 
 sub main {
@@ -189,11 +189,38 @@ sub main {
     }
     $opt_local_dir .= '/';
 
-    my %deps = ();
-    for my $file (@ARGV) {
+    my %deps           = ();
+    my $num_procs      = 8;
+    my $files_per_proc = int( scalar @ARGV / $num_procs );
+    my $extra_files    = scalar @ARGV - $num_procs * $files_per_proc;
+    my @readers        = ();
+    while ( scalar @ARGV > $files_per_proc ) {
+        pipe( my $reader, my $writer );
+        push @readers, $reader;
+        my $num_files = $files_per_proc + ( $extra_files-- > 0 );
+        if ( fork() == 0 ) {
+            foreach my $file ( @ARGV[ 0 .. $num_files - 1 ] ) {
+                ( my $pp_out = start_preprocessor( \@opt_pp_argv, $file ) )
+                  or fatal("Unable to start preprocessor; $!");
+                scan_dependencies( \%deps, $pp_out, $opt_track_system,
+                    $opt_local_dir );
+            }
+            trim_dependencies( \%deps, $opt_remove_built_in );
+            write_dependencies( \%deps, $writer );
+            exit 0;
+        }
+        else {
+            close $writer;
+            @ARGV = @ARGV[ $num_files .. $#ARGV ];
+        }
+    }
+    foreach my $file (@ARGV) {
         ( my $pp_out = start_preprocessor( \@opt_pp_argv, $file ) )
           or fatal("Unable to start preprocessor; $!");
         scan_dependencies( \%deps, $pp_out, $opt_track_system, $opt_local_dir );
+    }
+    foreach my $reader (@readers) {
+        read_dependencies( $reader, \%deps );
     }
     trim_dependencies( \%deps, $opt_remove_built_in );
     print_dependencies( \%deps, $opt_pretty_names, $opt_out_format );
@@ -414,6 +441,41 @@ sub trim_dependencies {
         delete $deps->{'<built-in>'};
         delete $deps->{'<command line>'};
     }
+}
+
+sub write_dependencies {
+    my ( $deps, $file ) = @_;
+    while ( my ( $filename, $deps ) = each %$deps ) {
+        print $file $filename, "\0";
+        foreach my $dep ( keys %$deps ) {
+            print $file $dep, "\0";
+        }
+        print $file "\0";
+    }
+}
+
+sub read_dependencies {
+    my ( $file, $deps ) = @_;
+    while ( length( my $path = read_path($file) ) ) {
+        my $these_deps = $deps->{$path};
+        if ( !$these_deps ) {
+            $these_deps = {};
+            $deps->{$path} = $these_deps;
+        }
+        while ( length( my $depname = read_path($file) ) ) {
+            $these_deps->{$depname} = 1;
+        }
+    }
+}
+
+sub read_path {
+    my ($file) = @_;
+    my $path = '';
+    while ( ( read $file, my $buf, 1 ) == 1 ) {
+        last if ( $buf eq "\0" );
+        $path .= $buf;
+    }
+    return $path;
 }
 
 sub print_dependencies {
