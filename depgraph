@@ -117,7 +117,7 @@ use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
 my $program_name = $0;
-my $version      = '0.1.1'; # Change this with care; it must be detected by sed.
+my $version      = '0.1.2'; # Change this with care; it must be detected by sed.
 my $help_text;              # Initialized later.
 
 sub main {
@@ -199,7 +199,7 @@ sub main {
             last;
         }
     }
-    $opt_local_dir .= '/';
+    $opt_local_dir .= '/' unless ( $opt_local_dir =~ /\/$/ );
     fatal("Invalid process count: $opt_parallel")
       unless ( $opt_parallel =~ /^[0-9]+$/ && +$opt_parallel > 0 );
 
