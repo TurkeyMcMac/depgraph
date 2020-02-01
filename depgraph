@@ -102,6 +102,10 @@ have false dependencies since all includes of a file are squashed into one node.
 Some includes are not mentioned at all by the preprocessor if they have already
 been included. Fortunately, this does not produce false negatives.
 
+The --local-dir option does a simple string prefix check for file paths. If the
+files have a different path that points to the same directory, they are seen as
+foreign files and are ignored.
+
 =head1 AUTHOR
 
 Written by Jude Melton-Houghton (jwmhjwmh@gmail.com).
