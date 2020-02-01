@@ -291,7 +291,7 @@ sub fatal {
 sub start_preprocessor {
     my ( $argv, $file ) = @_;
     my $argv_esc = join ' ', ( map { shell_escape($_) } @$argv );
-    $file = "./$file" if ($file =~ /^-/);
+    $file = "./$file" if ( $file =~ /^-/ );
     my $file_esc = shell_escape($file);
     if ( open( my $pp_out, '-|', "$argv_esc $file_esc | fgrep '#'" ) ) {
         return $pp_out;
