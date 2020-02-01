@@ -117,7 +117,7 @@ use constant INCFLAG_SYSTEM_HEADER  => 4;
 use constant INCFLAG_EXTERN_C       => 8;
 
 my $program_name = $0;
-my $version      = '0.1.0'; # Change this with care; it must be detected by sed.
+my $version      = '0.1.1'; # Change this with care; it must be detected by sed.
 my $help_text;              # Initialized later.
 
 sub main {
@@ -291,6 +291,7 @@ sub fatal {
 sub start_preprocessor {
     my ( $argv, $file ) = @_;
     my $argv_esc = join ' ', ( map { shell_escape($_) } @$argv );
+    $file = "./$file" if ($file =~ /^-/);
     my $file_esc = shell_escape($file);
     if ( open( my $pp_out, '-|', "$argv_esc $file_esc | fgrep '#'" ) ) {
         return $pp_out;
